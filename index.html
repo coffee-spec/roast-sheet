@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <!-- Paste your app's Client ID here (same value as client_id in shopify.app.toml) -->
+  <meta name="shopify-api-key" content="304077ba62560d0041e13167b9716d0f">
+  <script src="https://cdn.shopify.com/shopifycloud/app-bridge.js"></script>
+  <title>Roast Sheet</title>
+  <style>
+    @page { size: letter; margin: 0.45in; }
+    body { margin: 0; background: #f7f5f0; font-family: -apple-system, "Helvetica Neue", Arial, sans-serif; }
+    .bar { position: sticky; top: 0; z-index: 2; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; padding: 10px 14px; background: #413851; color: #fff; }
+    .bar b { font-size: 15px; margin-right: auto; letter-spacing: .03em; }
+    .bar button, .bar select { font: inherit; font-size: 14px; border: 0; border-radius: 6px; padding: 8px 14px; cursor: pointer; }
+    .bar .go { background: #FFD66B; color: #413851; font-weight: 700; }
+    .bar .alt { background: #fff; color: #413851; }
+    #status { font-size: 12px; opacity: .85; width: 100%; }
+    #paper { background: #fff; max-width: 8.5in; margin: 16px auto; padding: .45in; box-shadow: 0 1px 4px rgba(0,0,0,.12); }
+    .err { color: #b23a44; padding: 20px; }
+    @media print { .bar { display: none; } body { background: #fff; } #paper { margin: 0; padding: 0; box-shadow: none; max-width: none; } }
+  </style>
+  <style id="sheet-css"></style>
+</head>
+<body>
+  <div class="bar">
+    <b>NOSTALGICA · Roast sheet</b>
+    <select id="days" aria-label="Look back">
+      <option value="3">Last 3 days</option><option value="5">Last 5 days</option>
+      <option value="7" selected>Last 7 days</option><option value="10">Last 10 days</option><option value="14">Last 14 days</option>
+    </select>
+    <button class="alt" id="refresh">Refresh</button>
+    <button class="go" id="print">Print / save PDF</button>
+    <button class="alt" id="tab">Open print view</button>
+    <span id="status">Loading open orders…</span>
+  </div>
+  <div id="paper"></div>
+
+  <script src="config.js"></script>
+  <script src="sheet.js"></script>
+  <script src="render.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
