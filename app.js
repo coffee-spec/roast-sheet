@@ -34,7 +34,7 @@
 
   // Standalone printable page in a new tab — fallback if printing inside the admin frame is blocked.
   function openTab() {
-    const doc = `<!doctype html><html><head><meta charset="utf-8"><title>Roast sheet</title><style>@page{size:letter;margin:0.45in}body{margin:0}${RoastRender.CSS}</style></head><body>${html}<script>setTimeout(()=>print(),300)<\/script></body></html>`;
+    const doc = `<!doctype html><html><head><meta charset="utf-8"><title>Roast sheet</title>${RoastRender.FONT_LINK}<style>@page{size:letter;margin:0.45in}body{margin:0}${RoastRender.CSS}</style></head><body>${html}<script>setTimeout(()=>print(),300)<\/script></body></html>`;
     const url = URL.createObjectURL(new Blob([doc], { type: "text/html" }));
     window.open(url, "_blank");
   }
