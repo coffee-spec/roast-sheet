@@ -27,6 +27,19 @@
       "Noxturnal Decaf": "so",
     },
 
+    // Post-roast blends: components are roasted separately, then mixed by batch ratio.
+    // batches = how many batches of that component go into one full mix.
+    blendRecipes: {
+      "Equinox Espresso": [
+        { name: "Colombia / Guatemala", batches: 2 },
+        { name: "Ethiopia", batches: 1 },
+      ],
+      "Paper Route": [
+        { name: "Colombia / Guatemala", batches: 1 },
+        { name: "Ethiopia natural", batches: 1 },
+      ],
+    },
+
     // Name used for single-origin subscriptions where the roaster picks the coffee.
     soPickName: "Single-origin subscription (roaster's pick)",
 

@@ -4,6 +4,7 @@
 
   const ORDER_FIELDS = `
     name createdAt displayFulfillmentStatus
+    customer { displayName } shippingAddress { name company }
     lineItems(first: 100) { nodes {
       unfulfilledQuantity variantTitle
       product { title tags productType }
@@ -26,17 +27,19 @@
   // Pull every open (unfulfilled / partial) order. `gql` is a function(query, variables) -> json.
   async function fetchOrders(gql, config) {
     const q = "(fulfillment_status:unfulfilled OR fulfillment_status:partial) AND -status:cancelled";
-    let after = null, orders = [], pages = 0, truncated = false;
+    let after = null, orders = [], pages = 0, truncated = false; const warnings = new Set();
     do {
       const res = await gql(QUERY, { q, after });
-      if (res.errors) throw new Error(res.errors.map((e) => e.message).join("; "));
+      // Protected-customer-data errors (names) come back alongside the data; keep going without names.
+      if (res.errors && !(res.data && res.data.orders)) throw new Error(res.errors.map((e) => e.message).join("; "));
+      if (res.errors) res.errors.forEach((e) => warnings.add(e.message));
       const conn = res.data.orders;
       orders = orders.concat(conn.nodes);
       after = conn.pageInfo.hasNextPage ? conn.pageInfo.endCursor : null;
       pages++;
       if (after && pages >= config.maxPages) { truncated = true; break; }
     } while (after);
-    return { orders, truncated };
+    return { orders, truncated, warnings: [...warnings] };
   }
 
   // ---------- parsing ----------
@@ -131,6 +134,13 @@
     return tagType || learned[coffee] || config.knownTypes[coffee] || "blend";
   }
 
+  function whoOf(o) {
+    const sa = o.shippingAddress || {};
+    const cust = (o.customer && o.customer.displayName) || sa.name || "";
+    if (sa.company && cust && !cust.includes(sa.company)) return `${sa.company} (${cust})`;
+    return sa.company || cust;
+  }
+
   // ---------- main calc ----------
   function buildSheet(rawOrders, opts) {
     const config = opts.config;
@@ -168,7 +178,7 @@
           s.sizes[b.sizeLabel] = (s.sizes[b.sizeLabel] || 0) + b.bags;
         }
       }
-      if (items.length) orders.push({ name: o.name, createdAt: o.createdAt, status: o.displayFulfillmentStatus, items });
+      if (items.length) orders.push({ name: o.name, customer: whoOf(o), createdAt: o.createdAt, status: o.displayFulfillmentStatus, items });
     }
 
     // size columns, biggest first
@@ -187,6 +197,19 @@
       const yieldLb = bt.greenLb * (1 - bt.moistureLoss);
       const exact = c.roastedLb / yieldLb;
       const batches = Math.ceil(exact - 1e-9);
+      const recipe = (config.blendRecipes || {})[c.name];
+      if (recipe && recipe.length) {
+        // Post-roast blend: each component is roasted in its own full batches, split by the batch ratio.
+        const parts = recipe.reduce((t, r) => t + r.batches, 0);
+        const components = recipe.map((r) => {
+          const need = (c.roastedLb * r.batches) / parts;
+          const ex = need / yieldLb;
+          const b = Math.ceil(ex - 1e-9);
+          return { name: r.name, ratio: r.batches, roastedLb: need, exactBatches: ex, batches: b, greenLb: b * bt.greenLb, extraLb: b * yieldLb - need };
+        });
+        const tb = components.reduce((t, k) => t + k.batches, 0);
+        return { ...c, batchGreenLb: bt.greenLb, yieldLb, exactBatches: exact, batches: tb, greenLb: tb * bt.greenLb, extraLb: tb * yieldLb - c.roastedLb, components, ratio: recipe.map((r) => r.batches).join(" : ") };
+      }
       return { ...c, batchGreenLb: bt.greenLb, yieldLb, exactBatches: exact, batches, greenLb: batches * bt.greenLb, extraLb: batches * yieldLb - c.roastedLb };
     }).sort((a, b) => (a.type === b.type ? b.roastedLb - a.roastedLb : a.type === "blend" ? -1 : 1));
 
@@ -210,6 +233,7 @@
       alerts: {
         stale: staleCoffee.map((o) => o.name), pickupCount: pickup.length, truncated: !!opts.truncated,
         notes: [...notes], unknown,
+        namesHidden: (opts.warnings || []).some((w) => /customer|name|approved|access/i.test(w)) || (orders.length > 0 && orders.every((o) => !o.customer)),
       },
     };
   }

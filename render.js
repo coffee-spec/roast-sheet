@@ -24,6 +24,8 @@
   .rs .type{font-size:9px;text-transform:uppercase;letter-spacing:.06em;color:#777}
   .rs .chk{font-size:15px;letter-spacing:2px;white-space:nowrap}
   .rs .grp td{border-top:1.5px solid #bbb}
+  .rs .sub td{padding-left:14px;border-bottom:1px dotted var(--line)}
+  .rs .sub td:first-child{padding-left:18px}
   .rs .alert{border:1.5px solid var(--coral);padding:6px 9px;margin-top:10px;font-size:10.5px}
   .rs .alert b{color:#b23a44}
   .rs .alert ul{margin:3px 0 0 16px;padding:0}
@@ -57,24 +59,41 @@
     if (a.pickupCount) alertItems.push(`<b>${a.pickupCount}${a.truncated ? "+" : ""} orders sit at "Ready for pickup"</b> — already bagged, so they're left off. Mark them picked up in Shopify to clear them.`);
     a.unknown.forEach((u) => alertItems.push(`<b>Check by hand:</b> ${esc(u)}`));
     a.notes.forEach((n) => alertItems.push(esc(n)));
+    if (a.namesHidden) alertItems.push(`<b>Customer names are hidden.</b> Turn on "Name" under Protected customer data in the Dev Dashboard for the Roast Sheet app.`);
     const alerts = alertItems.length ? `<div class="alert"><ul>${alertItems.map((x) => `<li>${x}</li>`).join("")}</ul></div>` : "";
 
     if (!s.orders.length) return `<div class="rs">${head}${alerts}<div class="empty">Nothing to roast — no open coffee orders in the last ${s.lookbackDays} days.</div></div>`;
 
-    const roastRows = s.coffees.map((c) => `
+    const roastRows = s.coffees.map((c) => {
+      if (!c.components) return `
       <tr><td><b>${esc(c.name)}</b><div class="type">${c.type === "blend" ? "Blend" : "Single origin"}</div>${hint(c)}</td>
       <td class="num">${f1(c.roastedLb)} lb</td>
       <td class="ctr"><span class="big">${c.batches}</span> <span class="muted">(${c.exactBatches.toFixed(2)})</span></td>
       <td class="num">${c.greenLb} lb</td>
       <td class="num muted">+${f1(c.extraLb)} lb</td>
-      <td class="chk">${boxes(c.batches)}</td></tr>`).join("");
+      <td class="chk">${boxes(c.batches)}</td></tr>`;
+      const head = `
+      <tr class="grp"><td><b>${esc(c.name)}</b><div class="type">Post-roast blend · ${c.ratio} by batch</div></td>
+      <td class="num"><b>${f1(c.roastedLb)} lb</b></td>
+      <td class="ctr"><span class="big">${c.batches}</span> <span class="muted">total</span></td>
+      <td class="num"><b>${c.greenLb} lb</b></td>
+      <td class="num muted">+${f1(c.extraLb)} lb</td><td></td></tr>`;
+      const parts = c.components.map((k) => `
+      <tr class="sub"><td>↳ ${esc(k.name)} <span class="muted">(${k.ratio} of ${c.ratio.split(" : ").reduce((t, x) => t + +x, 0)})</span></td>
+      <td class="num">${f1(k.roastedLb)} lb</td>
+      <td class="ctr"><span class="big" style="font-size:15px">${k.batches}</span> <span class="muted">(${k.exactBatches.toFixed(2)})</span></td>
+      <td class="num">${k.greenLb} lb</td>
+      <td class="num muted">+${f1(k.extraLb)} lb</td>
+      <td class="chk">${boxes(k.batches)}</td></tr>`).join("");
+      return head + parts;
+    }).join("");
 
     const roaster = `
       <h2>Roaster</h2>
       <table><thead><tr><th>Coffee</th><th class="num">Roasted needed</th><th class="ctr">Batches</th><th class="num">Green to load</th><th class="num">Extra</th><th>Done</th></tr></thead>
       <tbody>${roastRows}
       <tr class="tot"><td>Total</td><td class="num">${f1(s.totals.roastedLb)} lb</td><td class="ctr">${s.totals.batches}</td><td class="num">${s.totals.greenLb} lb</td><td></td><td></td></tr></tbody></table>
-      <div class="foot">Blends: ${blendBt.greenLb} lb green → ${f1(blendBt.greenLb * (1 - blendBt.moistureLoss))} lb roasted (${Math.round(blendBt.moistureLoss * 100)}% loss). Single origins: ${soBt.greenLb} lb green → ${f1(soBt.greenLb * (1 - soBt.moistureLoss))} lb roasted (${Math.round(soBt.moistureLoss * 100)}% loss). Batches round up; the number in parentheses is the exact need, and "extra" is what goes to the shelf.</div>`;
+      <div class="foot">Blends: ${blendBt.greenLb} lb green → ${f1(blendBt.greenLb * (1 - blendBt.moistureLoss))} lb roasted (${Math.round(blendBt.moistureLoss * 100)}% loss). Single origins: ${soBt.greenLb} lb green → ${f1(soBt.greenLb * (1 - soBt.moistureLoss))} lb roasted (${Math.round(soBt.moistureLoss * 100)}% loss). Post-roast blends: roast each component in its own batches, then mix. Batches round up; the number in parentheses is the exact need, and "extra" is what goes to the shelf.</div>`;
 
     let last = null;
     const bagRows = s.skus.map((k) => {
@@ -94,13 +113,13 @@
 
     const orderRows = s.orders.slice().reverse().map((o) => {
       const parts = o.items.map((b) => `${b.bags}× ${esc(b.coffee)} ${b.sizeLabel}${b.grind !== "Whole bean" ? ` (${esc(b.grind)})` : ""}`);
-      return `<tr><td class="chk">☐</td><td><b>${esc(o.name)}</b></td><td>${fmtDay(o.createdAt)}</td><td>${parts.join(" · ")}</td></tr>`;
+      return `<tr><td class="chk">☐</td><td><b>${esc(o.name)}</b></td><td>${o.customer ? esc(o.customer) : `<span class="muted">—</span>`}</td><td>${fmtDay(o.createdAt)}</td><td>${parts.join(" · ")}</td></tr>`;
     }).join("");
     const packList = `
       <div class="pb"></div>
       <div class="top"><div><div class="brand">NOSTALGICA COFFEE</div><h1>Pack and ship list</h1></div><div class="meta"><b>${fmtDay(s.generatedAt)}</b> · pulled ${fmtTime(s.generatedAt)}</div></div>
       <h2>Orders, oldest first</h2>
-      <table><thead><tr><th style="width:24px"></th><th style="width:60px">Order</th><th style="width:80px">Placed</th><th>Bags</th></tr></thead><tbody>${orderRows}</tbody></table>
+      <table><thead><tr><th style="width:24px"></th><th style="width:52px">Order</th><th style="width:150px">Customer</th><th style="width:72px">Placed</th><th>Bags</th></tr></thead><tbody>${orderRows}</tbody></table>
       <div class="foot">Mark each order fulfilled in Shopify as it ships — the next pull drops it off automatically.</div>`;
 
     return `<div class="rs">${head}${alerts}${roaster}${bagger}${packList}</div>`;

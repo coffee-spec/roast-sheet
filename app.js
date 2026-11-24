@@ -19,8 +19,8 @@
     $("status").textContent = "Pulling open orders from Shopify…";
     $("refresh").disabled = true;
     try {
-      const { orders, truncated } = await RoastSheet.fetchOrders(gql, CONFIG);
-      const sheet = RoastSheet.buildSheet(orders, { config: CONFIG, truncated, lookbackDays: parseInt($("days").value, 10) });
+      const { orders, truncated, warnings } = await RoastSheet.fetchOrders(gql, CONFIG);
+      const sheet = RoastSheet.buildSheet(orders, { config: CONFIG, truncated, warnings, lookbackDays: parseInt($("days").value, 10) });
       html = RoastRender.render(sheet, CONFIG);
       $("paper").innerHTML = html;
       $("status").textContent = `Pulled ${new Date().toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })} · ${sheet.orders.length} orders · ${sheet.totals.batches} batches · ${Math.round(sheet.totals.roastedLb)} lb roasted`;
